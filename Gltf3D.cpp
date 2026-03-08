@@ -7,19 +7,7 @@ Gltf3D::Gltf3D(Object* Owner, Drawing::Renderer* renderer)
 {
 	shader = renderer;
 
-	if (!initcGltf(gltfPath.c_str()))
-	{
-		std::cout << "cgltf init error" << std::endl;
-	}
-	if (!Load3Ddatas())
-	{
-		std::cout << "Load3Ddatas error" << std::endl;
-	}
 
-	if (!LoadImages())
-	{
-		std::cout << "LoadImages error" << std::endl;
-	}
 
 }
 
@@ -28,61 +16,127 @@ void Gltf3D::update()
 
 }
 
-void Gltf3D::Draw3D(float x, float y, float z,float size,float angle, glm::vec3 center,float cameraposx, float cameraposy, float cameraposz)
+void Gltf3D::Draw3D(Gltf3D* gltf,float x, float y, float z,float size,float angle, glm::vec3 center,float cameraposx, float cameraposy, float cameraposz)
 {
-
-	if (!shader->Draw3D(vao, indices.size(), textureID, x, y, z,size,angle,center,cameraposx,cameraposy,cameraposz))
+	if (!shader->Draw3D( gltf,x, y, z,size,angle,center,cameraposx,cameraposy,cameraposz))
 	{
 		std::cout << "Draw3D error" << std::endl;
 	}
 }
 
-bool Gltf3D::initcGltf(const char* path)
+void Gltf3D::BindMaterialTextures(cgltf_material* material,GLuint shader)
+{
+	int unit = 0;
+
+	auto bind = [&](cgltf_texture_view& view, const char* uniformName) {
+		if (view.texture)
+		{
+			glActiveTexture(GL_TEXTURE0 + unit);
+			glBindTexture(GL_TEXTURE_2D, textureIDMap[view.texture]);
+			glUniform1i(glGetUniformLocation(shader, uniformName), unit);
+			unit++;
+		}
+		};
+
+	bind(material->pbr_metallic_roughness.base_color_texture, "baseColorTex");
+	bind(material->pbr_metallic_roughness.metallic_roughness_texture, "metallicRoughnessTex");
+	bind(material->normal_texture, "normalTex");
+	bind(material->occlusion_texture, "occlusionTex");
+	bind(material->emissive_texture, "emissiveTex");
+}
+
+
+bool Gltf3D::initcGltf()
 {
 
 
-	cgltf_result result = cgltf_parse_file(&options, path, &data);//ファイルから構造を読み取り methなど…
+	cgltf_result result = cgltf_parse_file(&options, gltfPath.c_str(), &data);//ファイルから構造を読み取り methなど…
 
 	if (result != cgltf_result_success)
 	{
 		std::cout << "error path or.." << std::endl;
 		cgltf_free(data);
 	}
-	cgltf_load_buffers(&options, data, path);//バイナリーを読み込み
+	result=  cgltf_load_buffers(&options, data, gltfPath.c_str());//バイナリーを読み込み
 
+	if (result != cgltf_result_success)
+	{
+		std::cout << "buffer load error" << std::endl;
+		cgltf_free(data);
+		return false;
+	}
+
+
+	result = cgltf_validate(data);
+	if (result != cgltf_result_success)
+	{
+		std::cout << "gltf validate error" << std::endl;
+	}
 	return true;
 }
 
 bool Gltf3D::LoadImages()
 {
-	cgltf_primitive& primitive = data->meshes[0].primitives[0];
-	if (!primitive.material)
-		return false;
 
-	cgltf_material& material = *primitive.material;
-	if (!material.pbr_metallic_roughness.base_color_texture.texture)
-		return false;
-
-	cgltf_texture* texture = material.pbr_metallic_roughness.base_color_texture.texture;
-	if(!texture)
-	{ 
-		std::cout << "No base color texture found" << std::endl;
-		return false;
-	}
-	cgltf_texture& tex = *texture;
-	if (!tex.image)
+	baseDir = gltfPath.substr(0, gltfPath.find_last_of("/\\") + 1);
+	for (size_t m = 0; m < data->meshes_count; m++)
 	{
-		std::cout << "Texture has no image" << std::endl;
-		return false;
+		cgltf_mesh& mesh = data->meshes[m];
+		for (size_t p = 0; p < data->meshes[m].primitives_count; p++)
+		{
+			cgltf_primitive& primitive = mesh.primitives[p];
+			if (!primitive.material)
+				continue;
+
+			cgltf_material& material = *primitive.material;
+			if (material.pbr_metallic_roughness.base_color_texture.texture)
+			{
+				LoadOneTexture(material.pbr_metallic_roughness.base_color_texture.texture,baseDir);
+			}
+
+			// metallicRoughnessTexture
+			if (material.pbr_metallic_roughness.metallic_roughness_texture.texture)
+			{
+				LoadOneTexture(material.pbr_metallic_roughness.metallic_roughness_texture.texture,baseDir);
+			}
+
+			// normalTexture
+			if (material.normal_texture.texture)
+			{
+				LoadOneTexture(material.normal_texture.texture,baseDir);
+			}
+
+			// occlusionTexture
+			if (material.occlusion_texture.texture)
+			{
+				LoadOneTexture(material.occlusion_texture.texture,baseDir);
+			}
+
+			// emissiveTexture
+			if (material.emissive_texture.texture)
+			{
+				LoadOneTexture(material.emissive_texture.texture,baseDir);
+			}
+
+			
+		}
 	}
 
-	cgltf_image& image = *tex.image;
+	return true;
+
+}
+
+bool Gltf3D::LoadOneTexture(cgltf_texture* texture,const std::string& baseDir)
+{
+	if (!texture || !texture->image)
+		return false;
+
+	cgltf_image& image = *texture->image;
 	unsigned char* data = nullptr;
 	int width, height, channels;
 	//外部画像がある場合
 	if (image.uri != NULL)
 	{
-		baseDir = gltfPath.substr(0, gltfPath.find_last_of("/\\") + 1);
 		std::string imagePath = baseDir + image.uri;
 		data = stbi_load(imagePath.c_str(), &width, &height, &channels, 0);
 		if (!data)
@@ -126,67 +180,134 @@ bool Gltf3D::LoadImages()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	stbi_image_free(data);
-	return true;
 
+	textureIDMap[texture] = textureID;
+
+	return true;
 }
 
 bool Gltf3D::Load3Ddatas()
 {
-	cgltf_mesh& mesh = data->meshes[0];
-	cgltf_primitive& primitive = mesh.primitives[0];
-	for (cgltf_size i = 0; i < mesh.primitives[0].attributes_count; i++)
+	if (!data)
 	{
-		cgltf_attribute& attribute = primitive.attributes[i];
-		if (attribute.type == cgltf_attribute_type_position)
+		std::cout << "Error: gltf data null!" << std::endl;
+		return false;
+	}
+
+	for (cgltf_size i = 0; i <data->meshes_count; i++)
+	{
+		cgltf_mesh& mesh = data->meshes[i];
+		
+		
+		for (cgltf_size ja = 0; ja < mesh.primitives_count; ja++)
 		{
-			positionAccessor = attribute.data;
+			vertices.clear();
+			indices.clear();
+
+		
+			cgltf_primitive& primitive = mesh.primitives[ja];
+
+			position = nullptr;
+			normal = nullptr;
+			UV = nullptr;
+		
+
+			for (cgltf_size k = 0; k < primitive.attributes_count; k++)
+			{
+				cgltf_attribute& attribute = primitive.attributes[k];
+				if (attribute.type == cgltf_attribute_type_position)
+				{
+					position = attribute.data;
+				}
+
+				if (attribute.type == cgltf_attribute_type_normal)
+				{
+					normal = attribute.data;
+				}
+
+				if (attribute.type == cgltf_attribute_type_texcoord)
+				{
+					UV = attribute.data;
+				}
+				std::cout << "attribute type: "
+					<< attribute.type
+					<< " index: "
+					<< attribute.index
+					<< std::endl;
+			}
+			if (!position)
+			{
+				std::cout << "Error missing position primitive" << std::endl;
+				continue;
+			}
+			cgltf_size vertCount = position->count;
+
+			bool hasnormal = (normal != nullptr);
+			bool hasUV = (UV != nullptr);
+
+			if (hasnormal)
+				vertCount = std::min(vertCount, normal->count);
+			if (hasUV)
+				vertCount = std::min(vertCount, UV->count);
+			//position
+			for (cgltf_size i = 0; i < position->count; i++)
+			{
+				Vertex v;
+				cgltf_accessor_read_float(position, i, &v.position.x, 3);
+				if (hasnormal)
+					cgltf_accessor_read_float(normal, i, &v.normal.x, 3);
+				else
+					v.normal = glm::vec3(0, 1, 0);
+				if (hasUV)
+					cgltf_accessor_read_float(UV, i, &v.texcoord.x, 2);
+				else
+					v.texcoord = glm::vec2(0, 0);
+
+				vertices.push_back(v);
+			}
+
+			//index
+			if (primitive.indices)
+			{
+				cgltf_accessor* indexAccessor = primitive.indices;
+				for (cgltf_size i = 0; i < indexAccessor->count; i++)
+				{
+					uint32_t idx;
+					cgltf_accessor_read_uint(indexAccessor, i, &idx, 1);
+					indices.push_back(idx);
+				}
+			}
+			
+
+			GLuint vao, vbo, ebo;
+			//vao vbo ebo
+			glGenVertexArrays(1, &vao);
+			glGenBuffers(1, &vbo);
+			glGenBuffers(1, &ebo);
+
+			glBindVertexArray(vao);
+			glBindBuffer(GL_ARRAY_BUFFER, vbo);
+			glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), vertices.data(), GL_STATIC_DRAW);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(uint32_t), indices.data(), GL_STATIC_DRAW);
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
+			glEnableVertexAttribArray(0);
+			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+			glEnableVertexAttribArray(1);
+			glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, texcoord));
+			glEnableVertexAttribArray(2);
+			primitiveVAO.push_back(vao);
+			primitiveVBO.push_back(vbo);
+			primitiveEBO.push_back(ebo);
+			primitiveIndexCount.push_back(indices.size());
+			primitiveMaterial.push_back(primitive.material);
+			std::cout << "meshes: " << data->meshes_count << std::endl;
+			std::cout << "buffers: " << data->buffers_count << std::endl;
 		}
-		else if (attribute.type == cgltf_attribute_type_normal)
-		{
-			normalAccessor = attribute.data;
-		}
-		else if (attribute.type == cgltf_attribute_type_texcoord)
-		{
-			texcoordAccessor = attribute.data;
-		}
+		
+	
 	}
-	for (cgltf_size i = 0; i < primitive.attributes_count; i++)
-	{
-		std::cout << "attributes:" << primitive.attributes[i].name << std::endl;
-	}
-
-	for (cgltf_size i = 0; i < positionAccessor->count; i++)
-	{
-		Vertex vertex;
-		cgltf_accessor_read_float(positionAccessor, i, &vertex.position.x, 3);
-		cgltf_accessor_read_float(normalAccessor, i, &vertex.normal.x, 3);
-		cgltf_accessor_read_float(texcoordAccessor, i, &vertex.texcoord.x, 2);
-		vertices.push_back(vertex);
-	}
-	cgltf_accessor* indexAccessor = primitive.indices;
-	for (cgltf_size i = 0; i < indexAccessor->count; ++i)
-	{
-		uint32_t index = 0;
-		cgltf_accessor_read_uint(indexAccessor, i, &index, 1);
-		indices.push_back(index);
-	}
-
-	glGenVertexArrays(1, &vao);
-	glGenBuffers(1, &vbo);
-	glGenBuffers(1, &ebo);
-
-	glBindVertexArray(vao);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), vertices.data(), GL_STATIC_DRAW);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(uint32_t), indices.data(), GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, texcoord));
-	glEnableVertexAttribArray(2);
 
 	return true;
 }

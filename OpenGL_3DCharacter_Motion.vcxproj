@@ -43,7 +43,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -105,13 +105,14 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>E:\stb_image;E:\GameTool\imgui-master;E:\VisualStudio2022\OpenGL_2DLIbrary_sample_Shooting\packages\freetype-master\include;E:\GameTool\tinygltf;E:\lua\src;E:\GameTool\cgltf-master;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>E:\stb_image;E:\GameTool\imgui-master;E:\VisualStudio2022\OpenGL_2DLIbrary_sample_Shooting\packages\freetype-master\include;E:\GameTool\tinygltf;E:\lua\src;E:\GameTool\cgltf-master;E:\saba-master\external;E:\bullet3-master\src;E:\DLL-Dependencies-Parser-master;E:\bullet3-master\build3\cmake\lib\Release;E:\vcpkg-master\packages\assimp_x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>OpenGL32.lib;freetype.lib;OpenAL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>E:\VisualStudio2022\OpenGL_2DLIbrary_sample_Shooting\packages\freetype-master\objs\x64\Release;E:\VisualStudio2022\OpenGL_2DLIbrary_sample_Shooting\packages\freetype-master\objs;C:\Program Files (x86)\OpenAL 1.1 SDK\libs\Win64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>OpenGL32.lib;freetype.lib;OpenAL32.lib;assimp-vc145-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>E:\VisualStudio2022\OpenGL_2DLIbrary_sample_Shooting\packages\freetype-master\objs\x64\Release;E:\VisualStudio2022\OpenGL_2DLIbrary_sample_Shooting\packages\freetype-master\objs;C:\Program Files (x86)\OpenAL 1.1 SDK\libs\Win64;E:\vcpkg-master\packages\assimp_x64-windows\bin;E:\VisualStudio2026\OpenGL_3DCharacter_Motion\lib\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -133,20 +134,20 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="ECS.h" />
-    <ClInclude Include="FBX.h" />
+    <ClInclude Include="assimp.h" />
     <ClInclude Include="Gltf3D.h" />
+    <ClInclude Include="Imgui.h" />
     <ClInclude Include="Object.h" />
     <ClInclude Include="Renderer.h" />
-    <ClInclude Include="saba.h" />
     <ClInclude Include="Time.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="FBX.cpp" />
+    <ClCompile Include="assimp.cpp" />
     <ClCompile Include="Gltf3D.cpp" />
+    <ClCompile Include="Imgui.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Object.cpp" />
     <ClCompile Include="Renderer.cpp" />
-    <ClCompile Include="saba.cpp" />
     <ClCompile Include="Time.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -160,8 +161,6 @@
     <Import Project="..\packages\nupengl.core.redist.0.1.0.1\build\native\nupengl.core.redist.targets" Condition="Exists('..\packages\nupengl.core.redist.0.1.0.1\build\native\nupengl.core.redist.targets')" />
     <Import Project="..\packages\nupengl.core.0.1.0.1\build\native\nupengl.core.targets" Condition="Exists('..\packages\nupengl.core.0.1.0.1\build\native\nupengl.core.targets')" />
     <Import Project="..\packages\boost_locale-vc143.1.87.0\build\boost_locale-vc143.targets" Condition="Exists('..\packages\boost_locale-vc143.1.87.0\build\boost_locale-vc143.targets')" />
-    <Import Project="..\packages\Assimp.redist.3.0.0\build\native\Assimp.redist.targets" Condition="Exists('..\packages\Assimp.redist.3.0.0\build\native\Assimp.redist.targets')" />
-    <Import Project="..\packages\Assimp.3.0.0\build\native\Assimp.targets" Condition="Exists('..\packages\Assimp.3.0.0\build\native\Assimp.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
@@ -173,7 +172,5 @@
     <Error Condition="!Exists('..\packages\nupengl.core.redist.0.1.0.1\build\native\nupengl.core.redist.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\nupengl.core.redist.0.1.0.1\build\native\nupengl.core.redist.targets'))" />
     <Error Condition="!Exists('..\packages\nupengl.core.0.1.0.1\build\native\nupengl.core.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\nupengl.core.0.1.0.1\build\native\nupengl.core.targets'))" />
     <Error Condition="!Exists('..\packages\boost_locale-vc143.1.87.0\build\boost_locale-vc143.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_locale-vc143.1.87.0\build\boost_locale-vc143.targets'))" />
-    <Error Condition="!Exists('..\packages\Assimp.redist.3.0.0\build\native\Assimp.redist.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Assimp.redist.3.0.0\build\native\Assimp.redist.targets'))" />
-    <Error Condition="!Exists('..\packages\Assimp.3.0.0\build\native\Assimp.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Assimp.3.0.0\build\native\Assimp.targets'))" />
   </Target>
 </Project>

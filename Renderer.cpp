@@ -8,16 +8,12 @@
 #include <sstream> // Add this include to resolve incomplete type error for std::stringstream
 #include"Object.h"
 #include"Gltf3D.h"
-#include"FBX.h"
-
-
 
 
 Drawing::Renderer::Renderer()
 {
 	// Constructor implementation
 	// Initialize any necessary resources or settings here
-	
 }
 
 Drawing::Renderer::~Renderer()
@@ -25,6 +21,9 @@ Drawing::Renderer::~Renderer()
 	// Destructor implementation
 	// Clean up any resources allocated in the constructor
 	glfwTerminate(); // Ensure GLFW is properly terminated
+	delete component;
+	delete Owner;
+	delete timer;
 }
 
 void Drawing::Renderer::GL(int width, int height)
@@ -117,12 +116,16 @@ void Drawing::Renderer::MainLoop()
 {
 	// Main rendering loop
 	bool TitleFlag = false;
-	auto Object3D = Owner->AddComponent<FBX>(Owner, this);
+	auto Object3D = Owner->AddComponent<Gltf3D>(Owner, this);
+	Object3D->initcGltf();
+	Object3D->Load3Ddatas();
+	Object3D->LoadImages();
+
 	while (!glfwWindowShouldClose(window)) {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen
 	
-		Object3D->Draw3D(1,5,5,0.8f,40,Object3D->center,2,4,10);
-
+		
+		Object3D->Draw3D(Object3D, 0, -2, 0, 0.05f, 45.0f, center, 0,0,6);
 		glfwSwapBuffers(window); // Swap buffers to display the rendered frame
 		glfwPollEvents(); // Poll for events (e.g., keyboard, mouse)
 
@@ -190,12 +193,44 @@ bool Drawing::Renderer::DrawInit()
 	return true; // Return true if initialization is successful
 }
 
-
-bool Drawing::Renderer::Draw3D(GLuint VAO, GLsizei indicesSize, GLuint texture, float x, float y, float z,float size,float radian, glm::vec3 center ,float cameraposx, float cameraposy, float cameraposz)
+bool Drawing::Renderer::DrawMMD(GLuint vao,GLsizei indexCount,GLenum indexType,GLuint texture,glm::mat4& model,float size,float x, float y, float z, float radian, glm::vec3 center, float cameraX, float cameraY, float cameraZ,size_t indexoffset)
 {
+	glUseProgram(shader3D);
+	glBindVertexArray(vao);//bind vao
+	model = glm::mat4(1.0f);
+	model = glm::translate(model, glm::vec3(x, y, z));
+	model = glm::scale(model, glm::vec3(size));
+	glm::vec3 camerapos = glm::vec3(cameraX, cameraY, cameraZ);
+	glm::vec3 target = glm::vec3(0.0f, 0.0f, 0.0f);
+	glm::vec3 upDirection = glm::vec3(0.0f, 1.0f, 0.0f);
+	glm::mat4 view = glm::lookAt(
+		camerapos,
+		center,
+		upDirection
+	);
+	glm::mat4 projection = glm::perspective(glm::radians(radian), (float)Width / (float)Height, 0.1f, 100.0f);
+
+	glUniformMatrix4fv(glGetUniformLocation(shader3D, "model"), 1, GL_FALSE, glm::value_ptr(model));
+	glUniformMatrix4fv(glGetUniformLocation(shader3D, "view"), 1, GL_FALSE, glm::value_ptr(view));
+	glUniformMatrix4fv(glGetUniformLocation(shader3D, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
+	//Draw the elements using texture
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glUniform1i(glGetUniformLocation(shader3D, "texture"), 0);
+	glDrawElements(GL_TRIANGLES, indexCount, indexType, (void*)indexoffset);
+
+	glBindVertexArray(0);//unbind vao
+	return true;
+}
+
+bool Drawing::Renderer::Draw3D( Gltf3D* gltf,float x, float y, float z,float size,float radian, glm::vec3 center ,float cameraposx, float cameraposy, float cameraposz)
+{
+	
 	glUseProgram(shader3D); // Use the shader program for rendering
-	glBindVertexArray(VAO); // Bind the VAO for drawing
-	glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x,y,z)); // Model matrix (identity for now)
+
+	glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, z)); // Model matrix (identity for now)
 	model = glm::scale(model, glm::vec3(size));
 	glm::vec3 cameraPos = glm::vec3(cameraposx, cameraposy, cameraposz);
 	glm::vec3 target = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -210,11 +245,28 @@ bool Drawing::Renderer::Draw3D(GLuint VAO, GLsizei indicesSize, GLuint texture, 
 	glUniformMatrix4fv(glGetUniformLocation(shader3D, "model"), 1, GL_FALSE, glm::value_ptr(model));
 	glUniformMatrix4fv(glGetUniformLocation(shader3D, "view"), 1, GL_FALSE, glm::value_ptr(view));
 	glUniformMatrix4fv(glGetUniformLocation(shader3D, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-	// Draw the elements using the bound VAO and texture
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, texture); // Bind the texture
-	glUniform1i(glGetUniformLocation(shader3D, "texture"), 0); // Set the texture uniform to use texture unit 0
-	glDrawElements(GL_TRIANGLES, indicesSize, GL_UNSIGNED_INT, 0);
+	size_t primIndex = 0;
+	for (size_t m = 0; m < gltf->data->meshes_count; m++)
+	{
+		cgltf_mesh& mesh = gltf->data->meshes[m];
+		for (size_t p = 0; p < mesh.primitives_count; p++)
+		{
+			cgltf_primitive& primitive = mesh.primitives[p];
+			cgltf_material* material = primitive.material;
+
+			// 1. primitive の VAO をバインド
+			glBindVertexArray(gltf->primitiveVAO[primIndex]);
+
+			// 2. material のテクスチャを全部セット
+			gltf->BindMaterialTextures(material,shader3D);
+
+			// 3. 描画
+			glDrawElements(GL_TRIANGLES, gltf->primitiveIndexCount[primIndex], GL_UNSIGNED_INT, 0);
+			primIndex++;
+		}
+
+	}
+	
 	glBindVertexArray(0); // Unbind the VAO after drawing
 	return true; // Return true if drawing is successful
 }

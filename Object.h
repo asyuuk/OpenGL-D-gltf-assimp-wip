@@ -49,12 +49,19 @@ public:
 
 	}
 
+	void DrawMMD(float x, float y, float z, float radian,float size, glm::vec3 center, float cameraX, float cameraY, float cameraZ)
+	{
+		for(auto& component :components)
+		{ 
+			component->DrawMMD(x,y,z,radian,size,center,cameraX,cameraY,cameraZ);
+		}
 
-	void Draw3D(float x, float y, float z,float size,float angle,glm::vec3 center,float cameraposx,float cameraposy,float cameraposz)
+	}
+	void Draw3D(Gltf3D* gltf,float x, float y, float z,float size,float angle,glm::vec3 center,float cameraposx,float cameraposy,float cameraposz)
 	{
 		for (auto& component : components)
 		{
-			component->Draw3D(x, y, z,size,angle,center,cameraposx,cameraposy,cameraposz);
+			component->Draw3D(gltf,x, y, z,size,angle,center,cameraposx,cameraposy,cameraposz);
 		}
 	}
 	void init()

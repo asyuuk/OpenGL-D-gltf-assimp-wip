@@ -11,11 +11,11 @@
 #include<glm/gtc/type_ptr.hpp>
 #include"Object.h"
 #include"Time.h"
-#include"FBX.h"
+#include"Gltf3D.h"
+
+class Gltf3D;
 
 class Object;
-
-class FBX;
 
 class Time;
 
@@ -40,8 +40,10 @@ namespace Drawing
 
 		bool DrawInit(); // テクスチャの描画初期化
 		
-		bool Draw3D(GLuint VAO, GLsizei indicesSize, GLuint texture, float x, float y, float z,float size,float radian,glm::vec3 center,float cameraposx,float cameraposy,float cameraposz); // 3Dモデルの描画
+		bool Draw3D(Gltf3D* gltf, float x, float y, float z,float size,float radian,glm::vec3 center,float cameraposx,float cameraposy,float cameraposz); // 3Dモデルの描画
 		
+		bool DrawMMD(GLuint vao, GLsizei indexCount, GLenum indexType, GLuint texture, glm::mat4& model, float size, float x, float y, float z, float radian, glm::vec3 center, float cameraX, float cameraY, float cameraZ,size_t offset);
+
 		bool LoadShaderPrograms();
 
 		void SetAspect(int width, int height); // ビューポートの設定
@@ -52,7 +54,7 @@ namespace Drawing
 
 		bool CheckReleaseKey(int key);
 
-
+	 
 		GLuint CreateShaderProgram(const std::string& vertexShaderSource, const std::string& fragmentShaderSource); // シェーダープログラムの作成
 
 		//Object List
@@ -64,55 +66,61 @@ namespace Drawing
 		int Height = 800; // ウィンドウの高
 		bool entrytrigger = false;
 		bool releasetrigger = false;
+		GLuint shader3D;
 	private:
 
-		GLuint shaderProgramTextures;//切り分けないシェーダー
-		GLuint shaderProgramDivSizeTextures;//切り分けるシェーダー
-		GLuint shader3D;
-		GLuint shader;//画像そのまま
+		GLuint shaderProgramTextures=0;//切り分けないシェーダー
+		GLuint shaderProgramDivSizeTextures=0;//切り分けるシェーダー
+		
+		GLuint shader=0;//画像そのまま
 
-		GLuint Titleshader;
+		GLuint Titleshader=0;
 
+		
+		GLuint textureID=0; // テクスチャID
 
-		GLuint textureID; // テクスチャID
+		GLuint textID=0;
 
-		GLuint textID;
+		GLuint VAO=0, VBO=0;
+		GLuint textVAO=0, textVBO=0;
 
-		GLuint VAO, VBO;
-		GLuint textVAO, textVBO;
+		GLuint fbo=0;
 
-		GLuint fbo;
+		GLuint colorTex=0;
 
-		GLuint colorTex;
-
-		int width, height, channels;
+		int width=0, height=0, channels=0;
 
 		float offsetX = 0.5, offsetY = 0; // テクスチャのオフセット
 
-		GLint offsetLoc;
-		GLint uSpriteIndex;
-		GLint uSheetSize;
-		GLint uTextureSize;
-		GLint uSpriteSize;
-		GLint uFrameX;
-		GLint uFrameY;
-		GLint OffsetsizeX;
-		GLint OffsetsizeY;
-		GLint Matrix4;
-		GLuint ebo;
+		GLint offsetLoc=0;
+		GLint uSpriteIndex=0;
+		GLint uSheetSize=0;
+		GLint uTextureSize=0;
+		GLint uSpriteSize=0;
+		GLint uFrameX=0;
+		GLint uFrameY=0;
+		GLint OffsetsizeX=0;
+		GLint OffsetsizeY=0;
+		GLint Matrix4=0;
+		GLuint ebo=0;
 
-		GLint _time;
-		GLint _waveamp;
-		GLint _wavefreq;
-		GLint _wavespeed;
+		GLint _time=0;
+		GLint _waveamp=0;
+		GLint _wavefreq=0;
+		GLint _wavespeed=0;
 
-
+		
 		GLFWwindow* window; // GLFWウィンドウ
 		float vertices[16];
 		Object* Owner = new Object;
 		Time* timer = new Time;
 		Component* component = new Component;
+
 		bool AddComponentsFlag = false;
-		FBX* fbx = nullptr;
+
+		glm::vec3 center
+			= {
+				0,0,1
+		};
 	};
 }
